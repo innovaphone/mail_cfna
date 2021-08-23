@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<voicemail xmlns="http://www.innovaphone.com/xsd/voicemail6.xsd">
+    <function define="StripMailto">
+        <index value="$to" pos="1" size="7" out="$scheme"/>
+        <if cond="$scheme">
+            <switch var="$scheme">
+                <case equal="mailto:">
+                    <index value="$to" pos="8" size="0" out="$to"/> <!--skip "mailto" -->
+                    <return/>
+                </case>
+            </switch>
+        </if>
+    </function>
+
+    <function define="CheckTo">
+        <assign out="$i" value="1"/>
+        <assign out="$c" value=""/>
+        <index value="$to" pos="$i" size="1" out="$c"/>
+        <lib-strlen string="$c" out="$len-c" />
+        <while cond="$len-c">
+            <switch var="$c">
+                <case equal="@">
+                    <return/>          <!-- '@' found, smells like an email address -->
+                </case>
+            </switch>
+            <add value="$i" value2="1" out="$i"/>
+            <assign out="$c" value=""/>
+            <index value="$to" pos="$i" size="1" out="$c"/>
+            <lib-strlen string="$c" out="$len-c" />
+        </while>
+        <assign out="$to" value=""/>   <!-- doesn't seem to be an email address -->
+    </function>
+    <function define="Main">
+                <pbx-getcallinfo out-cgpn="$cgpn" out-cdpn="$cdpn" out-leg2="$leg2" />
+		<pbx-finduser-e164 e164="$leg2" out-cn="$cn"/> 
+                <pbx-query-obj name="$cn" type="url" out="$to"/>
+                <call name="CheckTo"/>
+                 <if cond="$to">
+                    <call name="StripMailto"/>
+                </if>
+                <if cond="$to">
+                    <assign out="$from" value="$to"/>    <!--from email = to address by default-->
+                    <assign out="$subject" value="You lost a call from: "/>
+                    <assign out="$server" value="webmail.innovaphone.com"/>     <!--optional, outgoing smtp server-->
+                    <assign out="$user" value=""/>       <!--optional, authentication info-->
+                    <assign out="$password" value=""/>   <!--optional, authentication info-->
+                    <assign out="$file" value=""/>       <!-- <assign out="$file" value="$vm"/> experimental -->
+                    <exec url="mailto:$to?from=$to&amp;subject=$subject&amp;subject=$cgpn&amp;srv=$server&amp;usr=$user&amp;pwd=$password&amp;file=$file"/>
+                </if>
+	<store-get root="" name="Track1.g711a" out-url="$ctrl" />
+        <pbx-prompt url="$ctrl" barge-in="false"/>
+	<pbx-disc/>
+    </function>
+</voicemail>
+
+<!-- Mail on missed calls wiki-src/xml/Mail_CFNA 1,0,0,0 (C) innovaphone AG 2010-2019 -->
